@@ -1,0 +1,21 @@
+{
+  "name": "fintech-movements",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Personal financial movements module (MVP) for a Colombian fintech",
+  "workspaces": [
+    "apps/backend",
+    "apps/frontend",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:cov": "npm run test:cov --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20.18.0"
+  }
+}

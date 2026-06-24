@@ -1,0 +1,100 @@
+// Prisma schema - Single Source of Truth: SPEC_KIT.md section 2.2
+// Money is ALWAYS NUMERIC(18,2) -> Prisma.Decimal. Never float/double.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MovementType {
+  INCOME // ingreso
+  EXPENSE // egreso
+}
+
+model User {
+  id           String              @id @default(uuid()) @db.Uuid
+  email        String              @unique @db.Citext // case-insensitive
+  passwordHash String // Argon2id
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  categories    Category[]
+  movements     FinancialMovement[]
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+// Hashed, rotating refresh tokens for secure session control (SPEC 3.1).
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  tokenHash String // sha256 of the raw refresh token
+  familyId  String   @db.Uuid // rotation family; reuse detection revokes the family
+  revokedAt DateTime?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+model Category {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  name      String   @db.VarChar(80)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  budgets   Budget[]
+  movements FinancialMovement[]
+
+  @@unique([userId, name]) // no duplicate names per user
+  @@index([userId])
+  @@map("categories")
+}
+
+model Budget {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid // denormalized for isolation WHERE clauses
+  categoryId String   @db.Uuid
+  amount     Decimal  @db.Decimal(18, 2) // monthly cap; exact NUMERIC, never float
+  year       Int // e.g. 2026
+  month      Int // 1..12
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, year, month]) // one budget per category/month
+  @@index([userId, year, month])
+  @@map("budgets")
+}
+
+model FinancialMovement {
+  id          String       @id @default(uuid()) @db.Uuid
+  userId      String       @db.Uuid
+  categoryId  String?      @db.Uuid // optional for INCOME
+  type        MovementType
+  amount      Decimal      @db.Decimal(18, 2) // ALWAYS positive; sign comes from `type`
+  description String       @db.VarChar(255)
+  occurredAt  DateTime     @db.Date // movement date (no time)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([userId, occurredAt])
+  @@index([userId, type])
+  @@index([userId, categoryId, occurredAt]) // budget consumption calc
+  @@map("financial_movements")
+}
