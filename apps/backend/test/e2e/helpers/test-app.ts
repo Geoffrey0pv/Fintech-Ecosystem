@@ -1,6 +1,7 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import cookieParser from 'cookie-parser';
+import request from 'supertest';
 import { AppModule } from '../../../src/app.module';
 import { AllExceptionsFilter } from '../../../src/shared/infrastructure/http/filters/all-exceptions.filter';
 import { ResponseInterceptor } from '../../../src/shared/infrastructure/http/interceptors/response.interceptor';
@@ -44,4 +45,25 @@ export async function cleanDatabase(prisma: PrismaService): Promise<void> {
   await prisma.$executeRawUnsafe(
     'TRUNCATE TABLE "refresh_tokens","financial_movements","budgets","categories","users" RESTART IDENTITY CASCADE',
   );
+}
+
+export interface AuthedAgent {
+  agent: ReturnType<typeof request.agent>;
+  userId: string;
+}
+
+/**
+ * Registers a fresh user and returns a cookie-bearing supertest agent plus the
+ * created userId (read from the DB) for assertions.
+ */
+export async function registerAgent(
+  app: INestApplication,
+  prisma: PrismaService,
+  email: string,
+  password = 'StrongPass1',
+): Promise<AuthedAgent> {
+  const agent = request.agent(app.getHttpServer());
+  await agent.post('/api/v1/auth/register').send({ email, password }).expect(201);
+  const user = await prisma.user.findUniqueOrThrow({ where: { email: email.toLowerCase() } });
+  return { agent, userId: user.id };
 }
