@@ -53,6 +53,21 @@ export class Money {
     return this.value.greaterThanOrEqualTo(other.value);
   }
 
+  isNegative(): boolean {
+    return this.value.isNegative();
+  }
+
+  /**
+   * Exact check (no rounding) of whether this amount reaches a given percentage
+   * of `budget`. Avoids rounding artifacts at the 80%/100% alert thresholds.
+   */
+  reachesPercentOf(percent: number, budget: Money): boolean {
+    if (!budget.value.greaterThan(0)) {
+      return false;
+    }
+    return this.value.times(100).greaterThanOrEqualTo(budget.value.times(percent));
+  }
+
   /** Percentage this amount represents of `budget`, rounded to 2 decimals. */
   percentageOf(budget: Money): number {
     if (!budget.value.greaterThan(0)) {

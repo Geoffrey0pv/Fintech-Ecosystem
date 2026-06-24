@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { DomainError } from '../../../shared/domain/errors/domain.error';
+import { BudgetAlertProvider } from '../../../shared/application/ports/budget-alert.port';
 import { MovementsService } from './movements.service';
 import {
   CreateMovementData,
@@ -66,9 +67,11 @@ describe('MovementsService', () => {
   let service: MovementsService;
   const userId = 'user-1';
 
+  const noAlerts: BudgetAlertProvider = { getAlertForExpense: async () => null };
+
   beforeEach(() => {
     repo = new InMemoryMovementRepo();
-    service = new MovementsService(repo);
+    service = new MovementsService(repo, noAlerts);
   });
 
   describe('create', () => {
@@ -79,9 +82,10 @@ describe('MovementsService', () => {
         description: 'Salario',
         occurredAt: '2026-06-01',
       });
-      expect(res.amount).toBe('3200000.00');
-      expect(res.occurredAt).toBe('2026-06-01');
-      expect(res.categoryId).toBeNull();
+      expect(res.data.amount).toBe('3200000.00');
+      expect(res.data.occurredAt).toBe('2026-06-01');
+      expect(res.data.categoryId).toBeNull();
+      expect(res.meta).toEqual({ budgetAlerts: [] });
     });
 
     it('rejects a movement on a category the user does not own', async () => {
@@ -106,7 +110,7 @@ describe('MovementsService', () => {
         categoryId,
         occurredAt: '2026-06-01',
       });
-      expect(res.categoryId).toBe(categoryId);
+      expect(res.data.categoryId).toBe(categoryId);
     });
 
     it('rejects an invalid amount at the domain boundary', async () => {
@@ -118,6 +122,36 @@ describe('MovementsService', () => {
           occurredAt: '2026-06-01',
         }),
       ).rejects.toBeInstanceOf(DomainError);
+    });
+  });
+
+  describe('budget alert injection', () => {
+    it('injects a budget alert into meta for an expense over threshold', async () => {
+      const categoryId = randomUUID();
+      repo.ownedCategories.add(categoryId);
+      const alertingProvider: BudgetAlertProvider = {
+        getAlertForExpense: async () => ({
+          categoryId,
+          categoryName: 'Alimentación',
+          budget: '800000.00',
+          spent: '820000.00',
+          usagePercent: 102.5,
+          alert: 'CRITICAL_100',
+        }),
+      };
+      const svc = new MovementsService(repo, alertingProvider);
+
+      const res = await svc.create(userId, {
+        type: 'EXPENSE',
+        amount: '820000',
+        description: 'Mercado',
+        categoryId,
+        occurredAt: '2026-06-05',
+      });
+
+      expect(res.meta).toEqual({
+        budgetAlerts: [expect.objectContaining({ alert: 'CRITICAL_100', usagePercent: 102.5 })],
+      });
     });
   });
 
@@ -159,12 +193,14 @@ describe('MovementsService', () => {
 
   describe('getById / update / remove isolation', () => {
     it("throws NotFound for another user's movement", async () => {
-      const other = await service.create('user-2', {
-        type: 'INCOME',
-        amount: '5',
-        description: 'x',
-        occurredAt: '2026-06-01',
-      });
+      const other = (
+        await service.create('user-2', {
+          type: 'INCOME',
+          amount: '5',
+          description: 'x',
+          occurredAt: '2026-06-01',
+        })
+      ).data;
       await expect(service.getById(userId, other.id)).rejects.toBeInstanceOf(NotFoundException);
       await expect(
         service.update(userId, other.id, { description: 'hacked' }),

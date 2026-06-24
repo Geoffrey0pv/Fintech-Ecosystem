@@ -5,6 +5,8 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { validateEnv } from './config/env.validation';
 import { HealthController } from './health.controller';
 import { AuthModule } from './modules/auth/auth.module';
+import { BudgetsModule } from './modules/budgets/budgets.module';
+import { CategoriesModule } from './modules/categories/categories.module';
 import { MovementsModule } from './modules/movements/movements.module';
 import { PrismaModule } from './shared/infrastructure/prisma/prisma.module';
 import { JwtAuthGuard } from './shared/infrastructure/security/jwt-auth.guard';
@@ -24,6 +26,8 @@ import { SecurityModule } from './shared/infrastructure/security/security.module
     PrismaModule,
     SecurityModule,
     AuthModule,
+    CategoriesModule,
+    BudgetsModule,
     MovementsModule,
   ],
   controllers: [HealthController],

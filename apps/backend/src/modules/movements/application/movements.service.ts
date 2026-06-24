@@ -2,6 +2,11 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from '@nes
 import { MovementType } from '@prisma/client';
 import { Money } from '../../../shared/domain/value-objects/money.vo';
 import { MetaEnvelope } from '../../../shared/application/meta-envelope';
+import {
+  BUDGET_ALERT_PROVIDER,
+  BudgetAlert,
+  BudgetAlertProvider,
+} from '../../../shared/application/ports/budget-alert.port';
 import { CreateMovementDto } from './dto/create-movement.dto';
 import { QueryMovementsDto } from './dto/query-movements.dto';
 import { UpdateMovementDto } from './dto/update-movement.dto';
@@ -32,9 +37,12 @@ export interface BalanceResponse {
 
 @Injectable()
 export class MovementsService {
-  constructor(@Inject(MOVEMENT_REPOSITORY) private readonly repo: MovementRepositoryPort) {}
+  constructor(
+    @Inject(MOVEMENT_REPOSITORY) private readonly repo: MovementRepositoryPort,
+    @Inject(BUDGET_ALERT_PROVIDER) private readonly alerts: BudgetAlertProvider,
+  ) {}
 
-  async create(userId: string, dto: CreateMovementDto): Promise<MovementResponse> {
+  async create(userId: string, dto: CreateMovementDto): Promise<MetaEnvelope<MovementResponse>> {
     await this.assertCategory(userId, dto.categoryId);
     const entity = await this.repo.create({
       userId,
@@ -44,7 +52,7 @@ export class MovementsService {
       categoryId: dto.categoryId ?? null,
       occurredAt: this.parseDate(dto.occurredAt),
     });
-    return this.toResponse(entity);
+    return this.withAlerts(userId, entity);
   }
 
   async list(userId: string, query: QueryMovementsDto): Promise<MetaEnvelope<MovementResponse[]>> {
@@ -78,7 +86,11 @@ export class MovementsService {
     return this.toResponse(entity);
   }
 
-  async update(userId: string, id: string, dto: UpdateMovementDto): Promise<MovementResponse> {
+  async update(
+    userId: string,
+    id: string,
+    dto: UpdateMovementDto,
+  ): Promise<MetaEnvelope<MovementResponse>> {
     if (dto.categoryId !== undefined) {
       await this.assertCategory(userId, dto.categoryId);
     }
@@ -92,7 +104,7 @@ export class MovementsService {
     if (!entity) {
       throw new NotFoundException('Movement not found');
     }
-    return this.toResponse(entity);
+    return this.withAlerts(userId, entity);
   }
 
   async remove(userId: string, id: string): Promise<void> {
@@ -117,6 +129,28 @@ export class MovementsService {
         endDate: query.endDate ?? null,
       },
     };
+  }
+
+  /**
+   * Wraps a movement in the envelope and, for expenses on a budgeted category,
+   * injects the budget alert (WARNING_80 / CRITICAL_100) into meta (SPEC 4.3).
+   */
+  private async withAlerts(
+    userId: string,
+    entity: MovementEntity,
+  ): Promise<MetaEnvelope<MovementResponse>> {
+    const budgetAlerts: BudgetAlert[] = [];
+    if (entity.type === 'EXPENSE' && entity.categoryId) {
+      const alert = await this.alerts.getAlertForExpense(
+        userId,
+        entity.categoryId,
+        entity.occurredAt,
+      );
+      if (alert) {
+        budgetAlerts.push(alert);
+      }
+    }
+    return new MetaEnvelope(this.toResponse(entity), { budgetAlerts });
   }
 
   private async assertCategory(userId: string, categoryId?: string): Promise<void> {

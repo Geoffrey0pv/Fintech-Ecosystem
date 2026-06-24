@@ -27,7 +27,10 @@ export class MovementsController {
   constructor(private readonly movements: MovementsService) {}
 
   @Post()
-  create(@CurrentUser() userId: string, @Body() dto: CreateMovementDto): Promise<MovementResponse> {
+  create(
+    @CurrentUser() userId: string,
+    @Body() dto: CreateMovementDto,
+  ): Promise<MetaEnvelope<MovementResponse>> {
     return this.movements.create(userId, dto);
   }
 
@@ -61,7 +64,7 @@ export class MovementsController {
     @CurrentUser() userId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateMovementDto,
-  ): Promise<MovementResponse> {
+  ): Promise<MetaEnvelope<MovementResponse>> {
     return this.movements.update(userId, id, dto);
   }
 
