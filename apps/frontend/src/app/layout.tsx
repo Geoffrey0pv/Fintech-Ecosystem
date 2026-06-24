@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { Providers } from '../components/providers';
 
 export const metadata: Metadata = {
   title: 'Fintech Movements',
@@ -17,7 +18,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           color: '#e2e8f0',
         }}
       >
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
