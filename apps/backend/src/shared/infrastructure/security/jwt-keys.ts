@@ -28,10 +28,16 @@ export function resolveJwtKeys(config: ConfigService): JwtKeyPair {
   }
 
   if (config.get<string>('NODE_ENV') === 'production') {
-    throw new Error('JWT_PRIVATE_KEY and JWT_PUBLIC_KEY are required in production');
+    // For real production deployments persistent keys MUST be supplied; otherwise
+    // tokens are invalidated on every restart. We generate ephemeral keys so the
+    // one-command demo runs, but warn loudly.
+    logger.warn(
+      'JWT_PRIVATE_KEY/JWT_PUBLIC_KEY not set in production: generating EPHEMERAL keys. ' +
+        'Provide persistent keys for a real deployment.',
+    );
+  } else {
+    logger.warn('No JWT keys provided; generating an ephemeral RS256 key pair (dev)');
   }
-
-  logger.warn('No JWT keys provided; generating an ephemeral RS256 key pair (dev only)');
   const { privateKey, publicKey } = generateKeyPairSync('rsa', {
     modulusLength: 2048,
     publicKeyEncoding: { type: 'spki', format: 'pem' },

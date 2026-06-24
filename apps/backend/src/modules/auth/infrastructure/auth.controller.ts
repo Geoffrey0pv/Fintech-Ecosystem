@@ -17,14 +17,14 @@ const REFRESH_PATH = '/api/v1/auth';
 
 @Controller('auth')
 export class AuthController {
-  private readonly isProd: boolean;
+  private readonly cookieSecure: boolean;
 
   constructor(
     private readonly authService: AuthService,
     private readonly tokenService: TokenService,
     config: ConfigService,
   ) {
-    this.isProd = config.get<string>('NODE_ENV') === 'production';
+    this.cookieSecure = config.get<string>('COOKIE_SECURE') === 'true';
   }
 
   @Public()
@@ -92,7 +92,7 @@ export class AuthController {
   private cookieBase(path: string): CookieOptions {
     return {
       httpOnly: true,
-      secure: this.isProd,
+      secure: this.cookieSecure,
       sameSite: 'strict',
       path,
     };

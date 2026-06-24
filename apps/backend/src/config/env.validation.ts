@@ -50,6 +50,12 @@ export class EnvironmentVariables {
   @IsOptional()
   REFRESH_TOKEN_TTL = 604800;
 
+  // Whether auth cookies carry the Secure flag. Must be true behind HTTPS in
+  // production; false for local http demos. Accepts 'true' / 'false'.
+  @IsString()
+  @IsOptional()
+  COOKIE_SECURE = 'false';
+
   @IsString()
   @IsOptional()
   SEED_USER_EMAIL = 'demo@fintech.co';
