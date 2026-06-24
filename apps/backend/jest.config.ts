@@ -15,7 +15,16 @@ const config: Config = {
     '^@shared/(.*)$': '<rootDir>/shared/$1',
     '^@modules/(.*)$': '<rootDir>/modules/$1',
   },
-  collectCoverageFrom: ['**/*.(t|j)s', '!**/*.module.ts', '!**/main.ts'],
+  // Unit coverage targets business logic (domain + application + security core).
+  // HTTP controllers and Prisma adapters are exercised by the e2e suite (real DB).
+  collectCoverageFrom: [
+    'modules/**/application/**/*.ts',
+    'shared/**/domain/**/*.ts',
+    'shared/infrastructure/security/token.service.ts',
+    '!**/*.spec.ts',
+    '!**/ports/**',
+    '!**/dto/**',
+  ],
   coverageDirectory: '../coverage',
   coverageThreshold: {
     global: { lines: 80, branches: 75, functions: 80, statements: 80 },

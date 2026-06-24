@@ -1,4 +1,4 @@
-import { plainToInstance } from 'class-transformer';
+import { plainToInstance, Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, IsString, Min, validateSync } from 'class-validator';
 
 export enum NodeEnv {
@@ -16,6 +16,7 @@ export class EnvironmentVariables {
   @IsOptional()
   NODE_ENV: NodeEnv = NodeEnv.Development;
 
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @IsOptional()
@@ -37,11 +38,13 @@ export class EnvironmentVariables {
   @IsOptional()
   JWT_PUBLIC_KEY?: string;
 
+  @Type(() => Number)
   @IsInt()
   @Min(60)
   @IsOptional()
   ACCESS_TOKEN_TTL = 900;
 
+  @Type(() => Number)
   @IsInt()
   @Min(300)
   @IsOptional()

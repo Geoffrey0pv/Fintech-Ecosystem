@@ -43,8 +43,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
       const message =
         typeof res === 'string'
           ? res
-          : ((res as Record<string, unknown>).message as string) ?? exception.message;
-      const details = typeof res === 'object' ? (res as Record<string, unknown>).message : undefined;
+          : (((res as Record<string, unknown>).message as string) ?? exception.message);
+      const details =
+        typeof res === 'object' ? (res as Record<string, unknown>).message : undefined;
       return {
         status: exception.getStatus(),
         error: {
